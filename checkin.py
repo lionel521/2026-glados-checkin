@@ -4,6 +4,7 @@
 2026 GLaDOS 自动签到 GitHub版
 定时：北京时间17:30触发，脚本内随机0~1800秒延时，17:30~18:00签到
 推送：Server酱旧排版，无自动兑换，适配新版challenge校验
+新增：账号之间随机休眠60~180秒（最后一个账号不休眠）
 """
 import html
 import hashlib
@@ -249,7 +250,7 @@ def summarize_checkin_failure(result):
 
 def log_user_agent_configuration():
     try:
-        user_agent, normalized = normalize_user_agent(os.environ.get('GLADOS_USER_AGENT', ''))
+        user_agent, normalized = normalize_user_agent(os.environ.get("GLADOS_USER_AGENT", ""))
     except UserAgentConfigurationError as error:
         log(f'❌ User-Agent 配置错误: {error}')
         return False
@@ -449,6 +450,12 @@ def main():
         # 旧分行排版
         push_text += f"---------- 账号 {i} ----------\n"
         push_text += f"邮箱:{g.email} | 积分:{g.points} | 剩余天数:{g.left_days} | 结果:{msg}\n\n"
+
+        # 账号之间随机休眠60~180秒，最后一个账号不休眠
+        if i < len(cookies):
+            sleep_t = random.randint(60, 180)
+            log(f"⏳ 账号间间隔休眠 {sleep_t} 秒")
+            time.sleep(sleep_t)
 
     serverchan_sendkey = os.environ.get("SERVERCHAN_SENDKEY", "").strip()
     if serverchan_sendkey:
