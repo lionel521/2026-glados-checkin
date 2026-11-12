@@ -481,7 +481,7 @@ def main():
         log(f"{status_icon} 账号 {i} | 积分: {g.points} | 天数: {g.left_days} | 结果: {msg}")
 
         # ========= 【老版本计数逻辑：只要接口正常返回(is_success)就计入成功，重复签到也算成功】 =========
-        if is_success:
+        if is_success and points_delta > 0:
             success_cnt += 1
 
         # 【和你最早版本一模一样的Markdown排版，末尾两个空格硬换行】
