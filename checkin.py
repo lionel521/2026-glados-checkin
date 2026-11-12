@@ -7,6 +7,9 @@
 新增：账号之间随机休眠60~180秒（最后一个账号不休眠）
 修改点：无论成功/失败，全部推送；推送排版对齐你最早那版样式（Markdown标题+分行硬换行）
 新增：diagnose_only诊断模式跳过前置随机延时
+【本次改动】
+- 记录延时变量，推送增加延时+实际签到时间
+- 计数规则：只有拿到积分的签到才算成功，重复签到不计入成功计数
 """
 import html
 import hashlib
@@ -441,6 +444,8 @@ def main():
 
     # 读取诊断标记
     diagnose_only = os.environ.get("DIAGNOSE_ONLY", "").lower() in ["true", "1", "yes"]
+    delay = 0
+    real_checkin_time = ""
 
     # 【修改处】诊断模式跳过前置随机延时，正常签到保留延时
     if not diagnose_only:
@@ -452,8 +457,10 @@ def main():
             time.sleep(step)
             remain -= step
             log(f"⏳ 等待中，还剩 {remain} 秒开始签到")
+        real_checkin_time = beijing_time()
     else:
         log("🔍 诊断模式，跳过签到延时，直接校验账号")
+        real_checkin_time = beijing_time()
 
     cookies = get_cookies()
     if not cookies:
@@ -472,8 +479,11 @@ def main():
             g.get_points()
         status_icon = "✅" if is_success else "❌"
         log(f"{status_icon} 账号 {i} | 积分: {g.points} | 天数: {g.left_days} | 结果: {msg}")
-        if is_success:
+
+        # ========= 核心计数修改：只有本次积分增量>0才算成功，重复签到不计入 =========
+        if is_success and g.points_change and g.points_change.startswith("+") and int(g.points_change) > 0:
             success_cnt += 1
+
         # 【和你最早版本一模一样的Markdown排版，末尾两个空格硬换行】
         block = f"""# 🧾 账号{i}
 📧 账号邮箱：{g.email}  
@@ -499,8 +509,11 @@ def main():
         content = ""
         for res_text in results:
             content += res_text
-        bj_now = datetime.now(timezone(timedelta(hours=8)))
-        content += f"\n🕒 执行时间：{bj_now.strftime('%Y-%m-%d %H:%M:%S')}"
+        # 追加延时信息
+        if diagnose_only:
+            content += f"\n🕒 执行时间：{real_checkin_time}\n⏱ 本次延时：跳过（诊断模式）\n🕒 实际签到时刻：{real_checkin_time}"
+        else:
+            content += f"\n🕒 执行时间：{real_checkin_time}\n⏱ 本次延时：{delay} 秒\n🕒 实际签到时刻：{real_checkin_time}"
         serverchan_send(serverchan_sendkey, title, content)
 
     return 0 if success_cnt == len(cookies) else 1
