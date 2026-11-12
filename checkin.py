@@ -6,6 +6,7 @@
 推送：Server酱旧排版，无自动兑换，适配新版challenge校验
 新增：账号之间随机休眠60~180秒（最后一个账号不休眠）
 修改点：无论成功/失败，全部推送；推送排版对齐你最早那版样式（Markdown标题+分行硬换行）
+新增：diagnose_only诊断模式跳过前置随机延时
 """
 import html
 import hashlib
@@ -437,15 +438,22 @@ def serverchan_send(sendkey, title, desp):
 # ================= 主程序 =================
 def main():
     log("🚀 2026 GLaDOS Checkin Starting...")
-    # 随机延时 0~1800秒
-    delay = random.randint(0, 1800)
-    log(f"⏳ 等待 {delay} 秒后开始签到")
-    remain = delay
-    while remain > 0:
-        step = min(60, remain)
-        time.sleep(step)
-        remain -= step
-        log(f"⏳ 等待中，还剩 {remain} 秒开始签到")
+
+    # 读取诊断标记
+    diagnose_only = os.environ.get("DIAGNOSE_ONLY", "").lower() in ["true", "1", "yes"]
+
+    # 【修改处】诊断模式跳过前置随机延时，正常签到保留延时
+    if not diagnose_only:
+        delay = random.randint(0, 1800)
+        log(f"⏳ 等待 {delay} 秒后开始签到")
+        remain = delay
+        while remain > 0:
+            step = min(60, remain)
+            time.sleep(step)
+            remain -= step
+            log(f"⏳ 等待中，还剩 {remain} 秒开始签到")
+    else:
+        log("🔍 诊断模式，跳过签到延时，直接校验账号")
 
     cookies = get_cookies()
     if not cookies:
