@@ -1,37 +1,8 @@
-name: GLaDOS 2026 Checkin
-
-on:
-  schedule:
-    # 北京时间 09:30（UTC 01:30）。一天一次即可，脚本会在失败时自动重试。
-    - cron: '30 1 * * *'
-  workflow_dispatch:
-    inputs:
-      dispatch_source:
-        description: 手动运行请选择 manual；外部定时器可不填（默认按 external）
-        required: false
-        default: external
-        type: choice
-        options:
-          - manual
-          - external
-      diagnose_only:
-        description: 只检查 Cookie 是否可读取账号状态，不签到、不兑换、不推送
-        required: false
-        default: false
-        type: boolean
-
-concurrency:
-  group: glados-checkin
-  cancel-in-progress: false
-
-permissions:
-  contents: read
-
 jobs:
   checkin:
     if: github.event_name == 'schedule' || inputs.dispatch_source == 'manual' || inputs.dispatch_source == 'external'
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 35
 
     steps:
       - name: Checkout
@@ -51,7 +22,6 @@ jobs:
 
       - name: Run Checkin
         run: python checkin.py
-        timeout-minutes: 8
         env:
           GLADOS_COOKIE: ${{ secrets.GLADOS_COOKIE }}
           # Must match the browser that created the current gld:sess.
