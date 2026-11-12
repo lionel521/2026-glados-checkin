@@ -9,7 +9,7 @@
 新增：diagnose_only诊断模式跳过前置随机延时
 【本次改动】
 - 记录延时变量，推送增加延时+实际签到时间
-- 计数规则：只有拿到积分的签到才算成功，重复签到不计入成功计数
+- ✅ 计数逻辑改为老版本：只要签到接口正常返回(is_success)就算成功，重复签到计入成功数量
 """
 import html
 import hashlib
@@ -480,8 +480,8 @@ def main():
         status_icon = "✅" if is_success else "❌"
         log(f"{status_icon} 账号 {i} | 积分: {g.points} | 天数: {g.left_days} | 结果: {msg}")
 
-        # ========= 核心计数修改：只有本次积分增量>0才算成功，重复签到不计入 =========
-        if is_success and g.points_change and g.points_change.startswith("+") and int(g.points_change) > 0:
+        # ========= 【老版本计数逻辑：只要接口正常返回(is_success)就计入成功，重复签到也算成功】 =========
+        if is_success:
             success_cnt += 1
 
         # 【和你最早版本一模一样的Markdown排版，末尾两个空格硬换行】
