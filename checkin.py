@@ -481,8 +481,7 @@ def main():
         log(f"{status_icon} 账号 {i} | 积分: {g.points} | 天数: {g.left_days} | 结果: {msg}")
 
         # ========= 计数逻辑：只有积分增量为+，才算签到成功，重复签到不计入 =========
-        if g.points_change.startswith("+"):
-            success_cnt += 1
+        if "Checkin" in msg: success_cnt += 1
 
         # 【和你最早版本一模一样的Markdown排版，末尾两个空格硬换行】
         block = f"""# 🧾 账号{i}
