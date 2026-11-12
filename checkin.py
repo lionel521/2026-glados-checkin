@@ -5,6 +5,7 @@
 定时：北京时间17:30触发，脚本内随机0~1800秒延时，17:30~18:00签到
 推送：Server酱旧排版，无自动兑换，适配新版challenge校验
 新增：账号之间随机休眠60~180秒（最后一个账号不休眠）
+修改点：无论成功/失败，全部推送；推送排版对齐你最早那版样式（Markdown标题+分行硬换行）
 """
 import html
 import hashlib
@@ -294,6 +295,7 @@ class GLaDOS:
         self.left_days = "?"
         self.points = "?"
         self.points_change = "?"
+        self.exchange_info = ""
         self.session_cookie_kind = get_session_cookie_kind(cookie)
         if self.session_cookie_kind != 'gld':
             log(
@@ -365,6 +367,18 @@ class GLaDOS:
                 if not change.startswith('-'):
                     change = '+' + change
                 self.points_change = change
+            # 兑换计划
+            plans = res.get('plans', {})
+            pts = int(self.points)
+            exchange_lines = []
+            for plan_id, plan_data in plans.items():
+                need = plan_data['points']
+                days = plan_data['days']
+                if pts >= need:
+                    exchange_lines.append(f"✅ {need}分→{days}天 (可兑换)  ")
+                else:
+                    exchange_lines.append(f"❌ {need}分→{days}天 (差{need-pts}分)  ")
+            self.exchange_info = "\n".join(exchange_lines)
             return True
         return False
 
@@ -394,8 +408,8 @@ class GLaDOS:
             'proof': proof,
         }, domains=(domain,))
 
-# ================= Server酱推送（旧排版） =================
-def serverchan_push(sendkey, title, content):
+# ================= Server酱推送（旧排版，和你最早版本一致） =================
+def serverchan_send(sendkey, title, desp):
     sendkey = (sendkey or "").strip()
     if not sendkey:
         return False
@@ -408,7 +422,7 @@ def serverchan_push(sendkey, title, content):
     else:
         url = f"https://sctapi.ftqq.com/{sendkey}.send"
     try:
-        response = requests.post(url, json={'title': title, 'desp': content}, timeout=10)
+        response = requests.post(url, json={'title': title, 'desp': desp}, timeout=10)
         response.raise_for_status()
         payload = response.json()
         if not isinstance(payload, dict) or payload.get('code') != 0:
@@ -426,7 +440,12 @@ def main():
     # 随机延时 0~1800秒
     delay = random.randint(0, 1800)
     log(f"⏳ 等待 {delay} 秒后开始签到")
-    time.sleep(delay)
+    remain = delay
+    while remain > 0:
+        step = min(60, remain)
+        time.sleep(step)
+        remain -= step
+        log(f"⏳ 等待中，还剩 {remain} 秒开始签到")
 
     cookies = get_cookies()
     if not cookies:
@@ -435,7 +454,7 @@ def main():
         return 1
 
     success_cnt = 0
-    push_text = ""
+    results = []
     for i, cookie in enumerate(cookies, 1):
         g = GLaDOS(cookie)
         res, is_success = checkin_with_retry(g, attempts=3, delay_seconds=60)
@@ -447,9 +466,17 @@ def main():
         log(f"{status_icon} 账号 {i} | 积分: {g.points} | 天数: {g.left_days} | 结果: {msg}")
         if is_success:
             success_cnt += 1
-        # 旧分行排版
-        push_text += f"---------- 账号 {i} ----------\n"
-        push_text += f"邮箱:{g.email} | 积分:{g.points} | 剩余天数:{g.left_days} | 结果:{msg}\n\n"
+        # 【和你最早版本一模一样的Markdown排版，末尾两个空格硬换行】
+        block = f"""# 🧾 账号{i}
+📧 账号邮箱：{g.email}  
+💰 当前积分：{g.points} {g.points_change}  
+⏱️ 剩余天数：{g.left_days} 天  
+✅ 签到结果：{msg}  
+💱 兑换信息：  
+{g.exchange_info}
+
+"""
+        results.append(block)
 
         # 账号之间随机休眠60~180秒，最后一个账号不休眠
         if i < len(cookies):
@@ -457,10 +484,16 @@ def main():
             log(f"⏳ 账号间间隔休眠 {sleep_t} 秒")
             time.sleep(sleep_t)
 
+    # ====== 无论成功失败，一定会推送 ======
     serverchan_sendkey = os.environ.get("SERVERCHAN_SENDKEY", "").strip()
     if serverchan_sendkey:
-        title = f"GLaDOS签到 {success_cnt}/{len(cookies)}"
-        serverchan_push(serverchan_sendkey, title, push_text.strip())
+        title = f"GLaDOS签到: 成功{success_cnt}/{len(cookies)}"
+        content = ""
+        for res_text in results:
+            content += res_text
+        bj_now = datetime.now(timezone(timedelta(hours=8)))
+        content += f"\n🕒 执行时间：{bj_now.strftime('%Y-%m-%d %H:%M:%S')}"
+        serverchan_send(serverchan_sendkey, title, content)
 
     return 0 if success_cnt == len(cookies) else 1
 
