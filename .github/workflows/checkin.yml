@@ -1,3 +1,32 @@
+name: GLaDOS 2026 Checkin
+
+on:
+  schedule:
+    # 北京时间 17:30（UTC 09:30），脚本内部随机0~1800秒延时，签到窗口17:30~18:00
+    - cron: '30 9 * * *'
+  workflow_dispatch:
+    inputs:
+      dispatch_source:
+        description: 手动运行请选择 manual；外部定时器可不填（默认按 external）
+        required: false
+        default: external
+        type: choice
+        options:
+          - manual
+          - external
+      diagnose_only:
+        description: 只检查 Cookie 是否可读取账号状态，不签到、不兑换、不推送
+        required: false
+        default: false
+        type: boolean
+
+concurrency:
+  group: glados-checkin
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
 jobs:
   checkin:
     if: github.event_name == 'schedule' || inputs.dispatch_source == 'manual' || inputs.dispatch_source == 'external'
